@@ -3,6 +3,9 @@
 
 **Omarchy (Arch Linux + Hyprland) on Android, as one app. No root, no proot, no virtual machine.**
 
+[![Build APK](https://github.com/wind-wh/AOmarchy/actions/workflows/build.yml/badge.svg)](https://github.com/wind-wh/AOmarchy/actions/workflows/build.yml)
+[![Release APK](https://github.com/wind-wh/AOmarchy/actions/workflows/release.yml/badge.svg)](https://github.com/wind-wh/AOmarchy/actions/workflows/release.yml)
+
 Andromarchy runs a full Arch Linux ARM desktop on an Android tablet. Linux programs run directly on the device, with
 its GPU (Mesa Turnip/Freedreno on KGSL), sound, cameras, touch screen and on-screen keyboard. You get Omarchy's
 desktop with its apps, the Flatpak store, Brave, VS Code, and anything else from Arch Linux ARM.
@@ -22,7 +25,8 @@ are untested.
 
 ## Install
 
-1. Download `Andromarchy.apk` from the [latest release](../../releases/latest) and install it.
+1. Download `Andromarchy.apk` from the [latest release](../../releases/latest) and install it. Releases are built,
+   signed and published by GitHub Actions (see [Building](#building)); each release also carries a `.sha256` file.
 2. Open it. The first-launch screen asks for your name, email and keyboard layouts, then where the system comes from:
    the release download (about 1.9 GB), or a `lotfix-rootfs.tar.gz` you pick on the device (**Local archive**). It
    then unpacks the system.
@@ -58,6 +62,15 @@ change (HyperOS/MIUI take some gestures for themselves), installing apps, and th
 `build/build-rootfs-native.sh` builds the system image on the device itself, inside a running Andromarchy, with
 `build/build-inside.sh` (Mesa, XWayland, Hyprland, Squeekboard, fakechroot, Omarchy). The APK builds with Gradle in
 `apk/`. The patches to upstream projects are in `patches/`.
+
+### CI builds and releases
+
+- `.github/workflows/build.yml` builds a **debug APK** on every push to `main`/PR (artifact on the run page).
+- `.github/workflows/release.yml` publishes a **release**: push a `v*` tag (or run the workflow manually with a tag
+  name). It builds the APK, writes `Andromarchy-release.apk.sha256` and creates the GitHub Release.
+- Release signing uses the repository secrets `SIGNING_KEYSTORE_BASE64`, `SIGNING_STORE_PASSWORD`,
+  `SIGNING_KEY_ALIAS` and `SIGNING_KEY_PASSWORD` (see the workflow for the format). Without them the release workflow
+  still runs, but publishes a debug-signed pre-release instead.
 
 ## License and credits
 
