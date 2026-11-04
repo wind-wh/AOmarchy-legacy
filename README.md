@@ -48,6 +48,8 @@ change (HyperOS/MIUI take some gestures for themselves), installing apps, and th
   document portal and `flatpak-spawn` stand-ins.
 - **Updates are safe:** `pacman -Syu` works. Pacman hooks keep our builds (Mesa, Hyprland, aquamarine, fakechroot) in
   place across updates.
+- **CJK text:** the Arch system has no Chinese/Japanese/Korean font, so the session copies the one Android already
+  ships (`/system/fonts/NotoSansCJK-Regular.ttc`) into the rootfs. Without it, CJK text is drawn as empty boxes.
 
 ## Known limits
 

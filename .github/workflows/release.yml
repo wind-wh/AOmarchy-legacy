@@ -98,6 +98,10 @@ jobs:
             The first-launch setup screen can install the system from the online
             download or from a `lotfix-rootfs.tar.gz` on the device (**Local archive**).
 
+            The session now copies Android's CJK font into the Linux system, so
+            Chinese, Japanese and Korean text in the desktop is no longer drawn as
+            empty boxes.
+
             Install: download the APK and open it. Android may ask to allow
             installing apps from this source. If a previous Andromarchy build
             signed with a different key is installed, uninstall it first.

@@ -105,6 +105,13 @@ connected. The **⌨** icon in the bar shows or hides it at any time.
   after the key. **Double-tap** a modifier to keep it on; tap it again to release it.
 - It takes the colours of the current Omarchy theme.
 
+### Chinese, Japanese and Korean text
+
+The Arch system has no CJK font of its own, so Andromarchy copies the one Android ships
+(`/system/fonts/NotoSansCJK-Regular.ttc`) into the Linux system when a session starts. Chinese, Japanese and Korean
+text is then drawn normally in the desktop, the browser and the terminal instead of as empty boxes. (The first start
+after installing or updating the app takes a moment longer for that copy.)
+
 ### Android and Linux together
 
 - **Copy and paste** works both ways between Android apps and Linux apps.

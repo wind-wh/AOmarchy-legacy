@@ -67,6 +67,97 @@ public class SessionService extends Service {
         ctx.startForegroundService(new Intent(ctx, SessionService.class));
     }
 
+    /**
+     * Android's CJK font, in the order the devices ship it. The Arch rootfs has no CJK font (noto-fonts-cjk is not
+     * part of it), so Chinese text in the desktop would be drawn as empty boxes.
+     */
+    private static final String[] CJK_FONTS = {
+            "NotoSansCJK-Regular.ttc", "NotoSansCJKsc-Regular.otf", "NotoSansSC-Regular.otf", "NotoSansCJK-Regular.otf"
+    };
+
+    private static final String CJK_DIR = "usr/share/fonts/noto-cjk";
+    private static final String CJK_CONF = "etc/fonts/conf.d/99-andromarchy-cjk.conf";
+
+    /**
+     * Puts the CJK font Android ships into the rootfs, so Chinese (and Japanese/Korean) text is drawn. fontconfig
+     * then hands the generic families to it for Chinese: the applications that ask fontconfig for their font get
+     * the CJK one as the fallback for the characters the Latin fonts lack.
+     */
+    private void installCjkFonts() {
+        File rootfs = rootfs(this);
+        File dir = new File(rootfs, CJK_DIR);
+        if (!hasCjkFont(dir)) {
+            for (String name : CJK_FONTS) {
+                File src = new File("/system/fonts", name);
+                if (!src.isFile())
+                    continue;
+                File tmp = new File(dir, name + ".part");
+                try {
+                    dir.mkdirs();
+                    copyFile(src, tmp);
+                    if (!tmp.renameTo(new File(dir, name)))
+                        throw new IOException("could not move " + tmp + " into place");
+                    Log.i(TAG, "installed the Android CJK font " + src + " in the rootfs");
+                    break;
+                } catch (IOException e) {
+                    Log.w(TAG, "could not install " + src, e); // the desktop starts anyway: Chinese text stays boxes
+                }
+            }
+        }
+        File conf = new File(rootfs, CJK_CONF);
+        if (!conf.exists()) {
+            conf.getParentFile().mkdirs();
+            try (java.io.FileWriter w = new java.io.FileWriter(conf)) {
+                w.write(CJK_CONF_TEXT);
+            } catch (IOException e) {
+                Log.w(TAG, "could not write " + conf, e);
+            }
+        }
+    }
+
+    /** True when the font directory already holds a CJK font (a rootfs built with one, or a previous run). */
+    private static boolean hasCjkFont(File dir) {
+        File[] files = dir.listFiles();
+        if (files == null)
+            return false;
+        for (File f : files)
+            if (f.length() > 1L << 20)
+                return true;
+        return false;
+    }
+
+    private static void copyFile(File src, File dst) throws IOException {
+        try (java.io.InputStream in = new java.io.FileInputStream(src);
+             java.io.OutputStream out = new java.io.FileOutputStream(dst)) {
+            byte[] buf = new byte[1 << 16];
+            for (int n; (n = in.read(buf)) > 0; )
+                out.write(buf, 0, n);
+        }
+    }
+
+    /** Sends Chinese text to the copied font: Android's NotoSansCJK-Regular.ttc has the zh-* faces too. */
+    private static final String CJK_CONF_TEXT = "<?xml version=\"1.0\"?>\n"
+            + "<!DOCTYPE fontconfig SYSTEM \"urn:fontconfig:fonts.dtd\">\n"
+            + "<fontconfig>\n"
+            + "  <!-- Andromarchy: the Arch rootfs ships no CJK font; SessionService copies the one Android provides\n"
+            + "       into /usr/share/fonts/noto-cjk. Generic families asked for Chinese get it. -->\n"
+            + "  <match target=\"pattern\">\n"
+            + "    <test name=\"lang\" compare=\"contains\"><string>zh</string></test>\n"
+            + "    <test qual=\"any\" name=\"family\"><string>sans-serif</string></test>\n"
+            + "    <edit name=\"family\" mode=\"prepend\" binding=\"strong\"><string>Noto Sans CJK SC</string></edit>\n"
+            + "  </match>\n"
+            + "  <match target=\"pattern\">\n"
+            + "    <test name=\"lang\" compare=\"contains\"><string>zh</string></test>\n"
+            + "    <test qual=\"any\" name=\"family\"><string>serif</string></test>\n"
+            + "    <edit name=\"family\" mode=\"prepend\" binding=\"strong\"><string>Noto Sans CJK SC</string></edit>\n"
+            + "  </match>\n"
+            + "  <match target=\"pattern\">\n"
+            + "    <test name=\"lang\" compare=\"contains\"><string>zh</string></test>\n"
+            + "    <test qual=\"any\" name=\"family\"><string>monospace</string></test>\n"
+            + "    <edit name=\"family\" mode=\"prepend\" binding=\"strong\"><string>Noto Sans CJK SC</string></edit>\n"
+            + "  </match>\n"
+            + "</fontconfig>\n";
+
     @Override
     public void onCreate() {
         super.onCreate();
@@ -114,6 +205,8 @@ public class SessionService extends Service {
     }
 
     private void startSession() throws IOException {
+        installCjkFonts(); // before anything fontconfig-based runs: Chinese text has a font to fall back to
+
         File run = runDir(this);
         File sock = daemonSocket(this);
         sock.getParentFile().mkdirs();
