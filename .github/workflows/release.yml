@@ -1,0 +1,108 @@
+name: Release APK
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Release tag to create/update (for example v1.0.1)'
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Release APK
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: Check out
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Set up Android SDK tools
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android SDK packages
+        run: |
+          yes | sdkmanager --licenses > /dev/null || true
+          sdkmanager "platforms;android-36" "build-tools;36.0.0" "ndk;28.2.13676358" "cmake;3.22.1"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Prepare signing key
+        id: signing
+        env:
+          SIGNING_KEYSTORE_BASE64: ${{ secrets.SIGNING_KEYSTORE_BASE64 }}
+          SIGNING_STORE_PASSWORD: ${{ secrets.SIGNING_STORE_PASSWORD }}
+          SIGNING_KEY_ALIAS: ${{ secrets.SIGNING_KEY_ALIAS }}
+          SIGNING_KEY_PASSWORD: ${{ secrets.SIGNING_KEY_PASSWORD }}
+        run: |
+          if [ -z "$SIGNING_KEYSTORE_BASE64" ]; then
+            echo "signed=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::SIGNING_KEYSTORE_BASE64 is not set: this release will carry a debug-signed APK."
+            exit 0
+          fi
+          echo "signed=true" >> "$GITHUB_OUTPUT"
+          echo "$SIGNING_KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/release.jks"
+          {
+            echo "storePath=$RUNNER_TEMP/release.jks"
+            echo "storePassword=$SIGNING_STORE_PASSWORD"
+            echo "keyAlias=$SIGNING_KEY_ALIAS"
+            echo "keyPassword=$SIGNING_KEY_PASSWORD"
+          } > "$RUNNER_TEMP/signing.properties"
+          echo "ANDROMARCHY_SIGNING=$RUNNER_TEMP/signing.properties" >> "$GITHUB_ENV"
+
+      - name: Build APK
+        working-directory: apk
+        run: |
+          chmod +x gradlew
+          if [ "${{ steps.signing.outputs.signed }}" = "true" ]; then
+            ./gradlew --no-daemon assembleRelease
+          else
+            ./gradlew --no-daemon assembleDebug
+          fi
+
+      - name: Collect APK and checksum
+        run: |
+          mkdir -p dist
+          if [ -f apk/build/outputs/apk/release/Andromarchy-release.apk ]; then
+            cp apk/build/outputs/apk/release/Andromarchy-release.apk dist/
+          else
+            cp apk/build/outputs/apk/debug/Andromarchy-debug.apk dist/
+          fi
+          cd dist
+          for f in *.apk; do sha256sum "$f" > "$f.sha256"; done
+          ls -l
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ inputs.tag || github.ref_name }}
+          name: Andromarchy ${{ inputs.tag || github.ref_name }}
+          prerelease: ${{ steps.signing.outputs.signed != 'true' }}
+          fail_on_unmatched_files: true
+          files: dist/*
+          body: |
+            **Andromarchy** — Omarchy (Arch Linux + Hyprland) on Android, in one APK.
+
+            This release was built by GitHub Actions from the repository source.
+            The first-launch setup screen can install the system from the online
+            download or from a `lotfix-rootfs.tar.gz` on the device (**Local archive**).
+
+            Install: download the APK and open it. Android may ask to allow
+            installing apps from this source. If a previous Andromarchy build
+            signed with a different key is installed, uninstall it first.
+
+            Checksum: run `sha256sum -c Andromarchy-<variant>.apk.sha256`.
+
+            > Debug-signed placeholder releases (no release key configured yet)
+            > are marked as pre-releases; they cannot update a release-signed install.
