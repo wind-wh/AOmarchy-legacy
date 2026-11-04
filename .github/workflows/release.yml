@@ -102,6 +102,12 @@ jobs:
             Chinese, Japanese and Korean text in the desktop is no longer drawn as
             empty boxes.
 
+            Shutdown, reboot and log out from Omarchy's power menu now work: the
+            real `systemd-inhibit` needs logind, which Android does not have, so the
+            session installs a shim that runs the command instead. Shutdown closes
+            the session back to Android (no app can power the tablet off); reboot and
+            log out start a fresh session.
+
             Install: download the APK and open it. Android may ask to allow
             installing apps from this source. If a previous Andromarchy build
             signed with a different key is installed, uninstall it first.

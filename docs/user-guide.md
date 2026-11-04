@@ -112,6 +112,17 @@ The Arch system has no CJK font of its own, so Andromarchy copies the one Androi
 text is then drawn normally in the desktop, the browser and the terminal instead of as empty boxes. (The first start
 after installing or updating the app takes a moment longer for that copy.)
 
+### Shutting down, rebooting and logging out
+
+Omarchy's power menu works from the desktop:
+
+- **Shutdown** closes the Linux session and returns to Android. No app may power the tablet off, so that is as far as
+  it goes; use Android's power button for that.
+- **Reboot** and **Log out** end the session and start a fresh one.
+
+(Android has no logind; the app replaces the `systemd-inhibit` wrapper the power menu uses, which would otherwise fail
+with a "shutdown failed" notification and leave the desktop running.)
+
 ### Android and Linux together
 
 - **Copy and paste** works both ways between Android apps and Linux apps.

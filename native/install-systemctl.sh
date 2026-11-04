@@ -32,4 +32,7 @@ mkdir -p "$D" "$X"
 install -m 755 "$T/systemctl" "$X/systemctl"
 install -m 755 "$T/journalctl" "$D/"
 install -m 755 "$(dirname "$0")/systemctl-wrapper.sh" "$D/systemctl"
+# No logind: Omarchy's shutdown is wrapped in `systemd-inhibit ...`, so the real binary in /usr/bin failing
+# stopped it before it ever reached systemctl (only the "shutdown failed" notification came out).
+install -m 755 "$(dirname "$0")/systemd-inhibit-shim.sh" "$D/systemd-inhibit"
 echo "systemctl replacement $V installed in $D"

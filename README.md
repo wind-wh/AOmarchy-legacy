@@ -50,6 +50,9 @@ change (HyperOS/MIUI take some gestures for themselves), installing apps, and th
   place across updates.
 - **CJK text:** the Arch system has no Chinese/Japanese/Korean font, so the session copies the one Android already
   ships (`/system/fonts/NotoSansCJK-Regular.ttc`) into the rootfs. Without it, CJK text is drawn as empty boxes.
+- **Shutdown / reboot / log out from the desktop:** work. Android has no logind, so Omarchy's power menu's
+  `systemd-inhibit` wrapper is replaced by a shim that runs the wrapped command: Shutdown closes the session back to
+  Android, Reboot and Log out start a fresh session. They cannot power the tablet off — no app can.
 
 ## Known limits
 

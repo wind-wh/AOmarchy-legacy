@@ -158,6 +158,52 @@ public class SessionService extends Service {
             + "  </match>\n"
             + "</fontconfig>\n";
 
+    /**
+     * Android has no logind, and the rootfs ships systemd's real {@code systemd-inhibit} in /usr/bin: it asks
+     * logind for an inhibitor over D-Bus and fails. Omarchy's power menu wraps Shutdown in
+     * {@code systemd-inhibit ... omarchy-system shutdown --inhibited}, so that failure stopped the shutdown
+     * halfway: the desktop showed "shutdown failed" and stayed up, and the poweroff request never reached the app.
+     * A shim earlier in PATH (/usr/local/bin) just runs the wrapped command. Rootfs builds install the same file
+     * (native/systemd-inhibit-shim.sh); this covers the images that are already out there.
+     */
+    private void installSystemdInhibitShim() {
+        File shim = new File(rootfs(this), "usr/local/bin/systemd-inhibit");
+        byte[] want = SYSTEMD_INHIBIT_SHIM.getBytes(java.nio.charset.StandardCharsets.UTF_8);
+        try {
+            boolean same = shim.isFile()
+                    && java.util.Arrays.equals(want, java.nio.file.Files.readAllBytes(shim.toPath()));
+            if (!same) {
+                shim.getParentFile().mkdirs();
+                try (java.io.FileOutputStream out = new java.io.FileOutputStream(shim)) {
+                    out.write(want);
+                }
+                android.system.Os.chmod(shim.getPath(), 0755); // a normal tool, not a private app file
+                Log.i(TAG, "installed the systemd-inhibit shim in the rootfs");
+            } else if (!shim.canExecute()) {
+                android.system.Os.chmod(shim.getPath(), 0755);
+            }
+        } catch (Exception e) {
+            Log.w(TAG, "could not install " + shim, e); // the desktop starts anyway: shutdown stays broken
+        }
+    }
+
+    /** Runs the wrapped command instead of asking logind for an inhibitor (see installSystemdInhibitShim). */
+    private static final String SYSTEMD_INHIBIT_SHIM = "#!/bin/sh\n"
+            + "# Andromarchy: there is no logind, so there is nothing to ask for an inhibitor. Omarchy's shutdown is\n"
+            + "# wrapped in systemd-inhibit, and the real binary failing stopped it before systemctl ran. Run it instead.\n"
+            + "if [ \"$1\" = \"--list\" ] || [ \"$1\" = \"--list-details\" ]; then\n"
+            + "  echo \"No inhibitors.\"\n"
+            + "  exit 0\n"
+            + "fi\n"
+            + "while [ \"$#\" -gt 0 ]; do\n"
+            + "  case \"$1\" in\n"
+            + "    -*) shift ;;\n"
+            + "    *) break ;;\n"
+            + "  esac\n"
+            + "done\n"
+            + "[ \"$#\" -gt 0 ] || exit 0\n"
+            + "exec \"$@\"\n";
+
     @Override
     public void onCreate() {
         super.onCreate();
@@ -206,6 +252,7 @@ public class SessionService extends Service {
 
     private void startSession() throws IOException {
         installCjkFonts(); // before anything fontconfig-based runs: Chinese text has a font to fall back to
+        installSystemdInhibitShim(); // before Omarchy's power menu can be used: shutdown needs a fake inhibitor
 
         File run = runDir(this);
         File sock = daemonSocket(this);
